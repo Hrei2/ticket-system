@@ -18,7 +18,8 @@ export default function Login() {
       const response = await apiLogin(username, password);
       login(response.data.token, response.data.user);
     } catch (err) {
-      setError(err.response?.data?.error || 'Login failed');
+      const errorMessage = err.response?.data?.error || err.message || 'Login failed';
+      setError(typeof errorMessage === 'string' ? errorMessage : 'Login failed');
     } finally {
       setLoading(false);
     }
