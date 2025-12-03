@@ -1,7 +1,0 @@
-{
-  "nixpacksPlan": {
-    "start": {
-      "cmd": "npm start"
-    }
-  }
-}
