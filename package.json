@@ -1,8 +1,10 @@
 {
   "name": "ticket-system",
   "version": "1.0.0",
+  "private": true,
+  "workspaces": ["frontend"],
   "scripts": {
-    "build": "cd frontend && npm install && npm run build",
-    "install": "cd frontend && npm install"
+    "build": "npm run build --workspace=frontend",
+    "install:frontend": "npm install --workspace=frontend"
   }
 }
