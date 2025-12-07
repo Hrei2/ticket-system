@@ -6,10 +6,8 @@ export default function TicketForm({ onSuccess }) {
     email: '',
     name: '',
     surname: '',
-    birthdate: '',
-    class: ''
+    birthdate: ''
   });
-  const [availableClasses] = useState(['10A', '10B', '11A', '11B', '12A', '12B']);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -34,8 +32,7 @@ export default function TicketForm({ onSuccess }) {
         email: '',
         name: '',
         surname: '',
-        birthdate: '',
-        class: ''
+        birthdate: ''
       });
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to create ticket');
@@ -113,26 +110,6 @@ export default function TicketForm({ onSuccess }) {
             required
           />
           <p className="text-xs text-gray-500 mt-1">Format: DDMMYY (e.g., 031211 for Dec 3, 2011)</p>
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Class *
-          </label>
-          <select
-            name="class"
-            value={formData.class}
-            onChange={handleChange}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-            required
-          >
-            <option value="">Select a class</option>
-            {availableClasses.map((cls) => (
-              <option key={cls} value={cls}>
-                {cls}
-              </option>
-            ))}
-          </select>
         </div>
       </div>
 

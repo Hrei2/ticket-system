@@ -77,11 +77,8 @@ router.post('/register',
         return res.status(400).json({ error: 'Username already exists' });
       }
 
-      // Hash password
-      const passwordHash = await hashPassword(password);
-
-      // Create user
-      const newUser = await User.create(username, passwordHash, role);
+      // Create user (User.create will hash the password)
+      const newUser = await User.create(username, password, role);
 
       res.status(201).json({
         message: 'User created successfully',

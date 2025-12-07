@@ -53,11 +53,6 @@ export default function TicketDisplay({ ticket, onClose }) {
           </div>
 
           <div className="bg-white p-4 rounded-lg">
-            <p className="text-sm text-gray-600">Class</p>
-            <p className="text-lg font-semibold">{ticket.class}</p>
-          </div>
-
-          <div className="bg-white p-4 rounded-lg">
             <p className="text-sm text-gray-600">Date of Birth</p>
             <p className="text-lg font-semibold">{ticket.birthdate}</p>
           </div>

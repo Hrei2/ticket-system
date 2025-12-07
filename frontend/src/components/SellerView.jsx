@@ -60,10 +60,6 @@ export default function SellerView() {
                 <span className="font-medium">Email:</span>
                 <p>{lastTicket.email}</p>
               </div>
-              <div>
-                <span className="font-medium">Class:</span>
-                <p>{lastTicket.class}</p>
-              </div>
             </div>
           </div>
         )}

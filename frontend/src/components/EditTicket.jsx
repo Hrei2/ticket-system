@@ -7,8 +7,7 @@ export default function EditTicket({ ticket, onClose, onUpdate }) {
     surname: ticket.surname,
     email: ticket.email,
     owner_email: ticket.owner_email,
-    birthdate: ticket.birthdate,
-    class: ticket.class
+    birthdate: ticket.birthdate
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -112,19 +111,6 @@ export default function EditTicket({ ticket, onClose, onUpdate }) {
                 onChange={(e) => setFormData({ ...formData, birthdate: e.target.value })}
                 maxLength="6"
                 pattern="\d{6}"
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-                required
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Class
-              </label>
-              <input
-                type="text"
-                value={formData.class}
-                onChange={(e) => setFormData({ ...formData, class: e.target.value })}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
                 required
               />
