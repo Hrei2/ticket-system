@@ -4,6 +4,7 @@ const { body, validationResult } = require('express-validator');
 const Ticket = require('../models/Ticket');
 const TicketHistory = require('../models/TicketHistory');
 const { sendTicketEmail } = require('../utils/emailService');
+const { generateQRCode } = require('../utils/qrGenerator');
 const authMiddleware = require('../middleware/auth');
 const roleCheck = require('../middleware/roleCheck');
 
@@ -52,15 +53,24 @@ router.post('/',
 
       // Send email
       try {
+        console.log('📧 Attempting to send email to:', ticket.email);
         await sendTicketEmail(ticket);
+        console.log('✅ Email sent successfully to:', ticket.email);
       } catch (emailError) {
-        console.error('Email send failed:', emailError);
+        console.error('❌ Email send failed:', emailError.message);
+        console.error('Full error:', emailError);
         // Don't fail the request if email fails
       }
 
+      // Generate QR code for response
+      const qrCode = await generateQRCode(ticket.ticket_number);
+
       res.status(201).json({
         message: 'Ticket created successfully',
-        ticket
+        ticket: {
+          ...ticket,
+          qrCode
+        }
       });
     } catch (error) {
       console.error('Create ticket error:', error);

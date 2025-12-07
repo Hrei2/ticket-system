@@ -68,6 +68,20 @@ export default function TicketDisplay({ ticket, onClose }) {
         </div>
       </div>
 
+      {ticket.qrCode && (
+        <div className="bg-white p-6 rounded-lg border-2 border-gray-200 text-center">
+          <h3 className="text-lg font-semibold mb-4 text-gray-800">QR Code</h3>
+          <img 
+            src={ticket.qrCode} 
+            alt="Ticket QR Code" 
+            className="mx-auto max-w-xs w-full"
+          />
+          <p className="text-sm text-gray-600 mt-4">
+            🔒 This QR code is encrypted for security
+          </p>
+        </div>
+      )}
+
       {ticket.isScanned && (
         <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
           <p className="text-yellow-800 font-semibold">

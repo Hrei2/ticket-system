@@ -61,6 +61,16 @@ export default function SellerView() {
                 <p>{lastTicket.email}</p>
               </div>
             </div>
+            {lastTicket.qrCode && (
+              <div className="mt-4 text-center">
+                <img 
+                  src={lastTicket.qrCode} 
+                  alt="QR Code" 
+                  className="mx-auto max-w-[200px] bg-white p-2 rounded"
+                />
+                <p className="text-xs text-blue-700 mt-2">🔒 Encrypted QR Code</p>
+              </div>
+            )}
           </div>
         )}
       </main>

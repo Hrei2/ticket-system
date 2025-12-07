@@ -4,6 +4,7 @@ const Ticket = require('../models/Ticket');
 const EventSettings = require('../models/EventSettings');
 const TicketHistory = require('../models/TicketHistory');
 const { calculateAge, getAgeColor, formatBirthdate } = require('../utils/ageCalculator');
+const { decryptTicketNumber } = require('../utils/qrGenerator');
 const authMiddleware = require('../middleware/auth');
 const roleCheck = require('../middleware/roleCheck');
 
@@ -13,7 +14,15 @@ router.post('/scan/:ticketNumber',
   roleCheck('scanner', 'admin'),
   async (req, res) => {
     try {
-      const { ticketNumber } = req.params;
+      let { ticketNumber } = req.params;
+
+      // Try to decrypt if it's encrypted
+      try {
+        ticketNumber = decryptTicketNumber(ticketNumber);
+      } catch (decryptError) {
+        // If decryption fails, assume it's already plain text (for backward compatibility)
+        console.log('Using plain ticket number (not encrypted)');
+      }
 
       // Find ticket
       const ticket = await Ticket.findByTicketNumber(ticketNumber);
@@ -78,7 +87,15 @@ router.get('/validate/:ticketNumber',
   roleCheck('scanner', 'admin'),
   async (req, res) => {
     try {
-      const { ticketNumber } = req.params;
+      let { ticketNumber } = req.params;
+
+      // Try to decrypt if it's encrypted
+      try {
+        ticketNumber = decryptTicketNumber(ticketNumber);
+      } catch (decryptError) {
+        // If decryption fails, assume it's already plain text
+        console.log('Using plain ticket number (not encrypted)');
+      }
 
       // Find ticket
       const ticket = await Ticket.findByTicketNumber(ticketNumber);
