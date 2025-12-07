@@ -15,8 +15,7 @@ router.post('/',
     body('email').isEmail().withMessage('Invalid email'),
     body('name').trim().notEmpty().withMessage('Name is required'),
     body('surname').trim().notEmpty().withMessage('Surname is required'),
-    body('birthdate').matches(/^\d{6}$/).withMessage('Birthdate must be in DDMMYY format'),
-    body('class').trim().notEmpty().withMessage('Class is required')
+    body('birthdate').matches(/^\d{6}$/).withMessage('Birthdate must be in DDMMYY format')
   ],
   async (req, res) => {
     try {
@@ -25,7 +24,7 @@ router.post('/',
         return res.status(400).json({ errors: errors.array() });
       }
 
-      const { email, name, surname, birthdate, class: ticketClass } = req.body;
+      const { email, name, surname, birthdate } = req.body;
 
       // Validate birthdate format
       const day = parseInt(birthdate.substring(0, 2));
@@ -39,8 +38,7 @@ router.post('/',
         email,
         name,
         surname,
-        birthdate,
-        ticketClass
+        birthdate
       }, req.user.id);
 
       // Log creation
@@ -74,14 +72,11 @@ router.post('/',
 // Get all tickets
 router.get('/', authMiddleware, async (req, res) => {
   try {
-    const { isScanned, class: ticketClass, search } = req.query;
+    const { isScanned, search } = req.query;
 
     const filters = {};
     if (isScanned !== undefined) {
       filters.isScanned = isScanned === 'true';
-    }
-    if (ticketClass) {
-      filters.class = ticketClass;
     }
     if (search) {
       filters.search = search;

@@ -2,7 +2,7 @@ const pool = require('../config/database');
 
 class Ticket {
   static async create(ticketData, createdBy) {
-    const { email, name, surname, birthdate, ticketClass } = ticketData;
+    const { email, name, surname, birthdate } = ticketData;
     
     // Generate ticket number
     const year = new Date().getFullYear();
@@ -11,9 +11,9 @@ class Ticket {
     const ticketNumber = `TKT-${year}-${String(count).padStart(5, '0')}`;
 
     const result = await pool.query(
-      `INSERT INTO tickets (ticket_number, email, name, surname, birthdate, class, owner_email, created_by) 
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
-      [ticketNumber, email, name, surname, birthdate, ticketClass, email, createdBy]
+      `INSERT INTO tickets (ticket_number, email, name, surname, birthdate, owner_email, created_by) 
+       VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
+      [ticketNumber, email, name, surname, birthdate, email, createdBy]
     );
     return result.rows[0];
   }
@@ -56,12 +56,6 @@ class Ticket {
     if (filters.isScanned !== undefined) {
       query += ` AND t.is_scanned = $${paramCount}`;
       params.push(filters.isScanned);
-      paramCount++;
-    }
-
-    if (filters.class) {
-      query += ` AND t.class = $${paramCount}`;
-      params.push(filters.class);
       paramCount++;
     }
 

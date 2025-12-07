@@ -1,5 +1,5 @@
 function generateTicketEmailHTML(ticketData, qrCodeDataURL) {
-  const { ticket_number, name, surname, email, class: ticketClass } = ticketData;
+  const { ticket_number, name, surname, email } = ticketData;
   
   return `
     <!DOCTYPE html>
@@ -98,7 +98,6 @@ function generateTicketEmailHTML(ticketData, qrCodeDataURL) {
         <div class="ticket-info">
           <p><strong>Name:</strong> ${name} ${surname}</p>
           <p><strong>Email:</strong> ${email}</p>
-          <p><strong>Class:</strong> ${ticketClass}</p>
           <p><strong>Ticket Number:</strong> ${ticket_number}</p>
         </div>
         
