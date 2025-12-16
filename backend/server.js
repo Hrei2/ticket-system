@@ -77,8 +77,8 @@ function initDatabase() {
     )`);
 
     // Insert default age rules
-    db.run(`INSERT OR IGNORE INTO age_rules (min_age, max_age, color) VALUES (0, 15, 'red')`);
-    db.run(`INSERT OR IGNORE INTO age_rules (min_age, max_age, color) VALUES (16, 25, 'green')`);
+    db.run(`INSERT OR IGNORE INTO age_rules (min_age, max_age, color) VALUES (0, 17, 'red')`);
+    db.run(`INSERT OR IGNORE INTO age_rules (min_age, max_age, color) VALUES (18, 25, 'yellow')`);
     db.run(`INSERT OR IGNORE INTO age_rules (min_age, max_age, color) VALUES (26, 150, 'green')`);
 
     // Insert default admin user
@@ -143,6 +143,13 @@ app.post('/api/users', authenticateToken, authorizeRole(['admin']), (req, res) =
   db.run('INSERT INTO users (username, password, role) VALUES (?, ?, ?)', [username, hashedPassword, role], function(err) {
     if (err) return res.status(500).json({ error: err.message });
     res.json({ id: this.lastID });
+  });
+});
+
+app.delete('/api/users/:id', authenticateToken, authorizeRole(['admin']), (req, res) => {
+  db.run('DELETE FROM users WHERE id = ?', [req.params.id], (err) => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json({ message: 'User deleted' });
   });
 });
 
@@ -215,7 +222,7 @@ app.post('/api/tickets', authenticateToken, authorizeRole(['admin', 'seller']), 
             if (!err) {
               try {
                 await resend.emails.send({
-                  from: 'noreply@yourapp.com', // Replace with your verified Resend email
+                  from: 'noreply.r3gticketsys.tech',
                   to: email,
                   subject: 'Your Ticket',
                   text: `Here is your ticket. Ticket Number: ${nextNum}`,
@@ -234,6 +241,47 @@ app.post('/api/tickets', authenticateToken, authorizeRole(['admin', 'seller']), 
         }
         
         res.json({ ticket: ticketData, qr_code: qrCode });
+      });
+    });
+  });
+});
+
+// Edit ticket
+app.put('/api/tickets/:id', authenticateToken, authorizeRole(['admin']), (req, res) => {
+  const { name, surname, birthdate, email, status } = req.body;
+  const ticketId = req.params.id;
+
+  // First get the current ticket
+  db.get('SELECT * FROM tickets WHERE id = ?', [ticketId], (err, ticket) => {
+    if (err) return res.status(500).json({ error: err.message });
+    if (!ticket) return res.status(404).json({ error: 'Ticket not found' });
+
+    // Update the ticket
+    db.run('UPDATE tickets SET name = ?, surname = ?, birthdate = ?, email = ?, status = ? WHERE id = ?', 
+      [name || ticket.name, surname || ticket.surname, birthdate || ticket.birthdate, email || ticket.email, status || ticket.status, ticketId], (err) => {
+      if (err) return res.status(500).json({ error: err.message });
+
+      // Regenerate QR code with updated data
+      const updatedTicketData = { 
+        id: ticketId, 
+        event_id: ticket.event_id, 
+        number: ticket.number, 
+        name: name || ticket.name, 
+        surname: surname || ticket.surname, 
+        birthdate: birthdate || ticket.birthdate, 
+        email: email || ticket.email 
+      };
+      const cipher = crypto.createCipher('aes-256-cbc', 'ticket-secret');
+      let encrypted = cipher.update(JSON.stringify(updatedTicketData), 'utf8', 'hex');
+      encrypted += cipher.final('hex');
+
+      QRCode.toDataURL(encrypted, (err, qrCode) => {
+        if (err) return res.status(500).json({ error: err.message });
+
+        db.run('UPDATE tickets SET qr_code = ? WHERE id = ?', [qrCode, ticketId], (err) => {
+          if (err) return res.status(500).json({ error: err.message });
+          res.json({ message: 'Ticket updated', qr_code: qrCode });
+        });
       });
     });
   });
