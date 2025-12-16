@@ -5,6 +5,7 @@ WORKDIR /app
 COPY frontend/package*.json ./frontend/
 RUN npm install --prefix frontend
 COPY frontend ./frontend
+RUN chmod +x frontend/node_modules/.bin/react-scripts
 RUN npm run build --prefix frontend
 
 FROM node:18
