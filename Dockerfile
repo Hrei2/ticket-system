@@ -1,28 +1,21 @@
-FROM node:18
-
-USER root
+FROM node:18 AS builder
 
 WORKDIR /app
 
-# Copy package files first for better caching
 COPY frontend/package*.json ./frontend/
-COPY backend/package*.json ./backend/
-
-# Install dependencies
-RUN npm install --prefix frontend && npm install --prefix backend
-
-# Fix permissions for executable scripts
-RUN chmod -R +x frontend/node_modules/.bin/ && chmod -R +x backend/node_modules/.bin/
-RUN chmod +x frontend/node_modules/react-scripts/bin/react-scripts.js
-
-# Copy source code
-COPY . .
-
-# Build frontend
+RUN npm install --prefix frontend
+COPY frontend ./frontend
 RUN npm run build --prefix frontend
 
-# Expose port
+FROM node:18
+
+WORKDIR /app
+
+COPY backend/package*.json ./backend/
+RUN npm install --prefix backend
+COPY backend ./backend
+COPY --from=builder /app/frontend/build ./frontend/build
+
 EXPOSE 3001
 
-# Start the backend server
 CMD ["npm", "start", "--prefix", "backend"]
