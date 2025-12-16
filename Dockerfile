@@ -1,5 +1,7 @@
 FROM node:18-alpine
 
+USER root
+
 WORKDIR /app
 
 # Copy package files first for better caching
@@ -21,6 +23,8 @@ RUN npm run build --prefix frontend
 
 # Expose port
 EXPOSE 3001
+
+USER node
 
 # Start the backend server
 CMD ["npm", "start", "--prefix", "backend"]
