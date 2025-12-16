@@ -11,6 +11,7 @@ RUN npm install --prefix frontend && npm install --prefix backend
 
 # Fix permissions for executable scripts
 RUN chmod -R +x frontend/node_modules/.bin/ && chmod -R +x backend/node_modules/.bin/
+RUN chmod +x frontend/node_modules/react-scripts/bin/react-scripts.js
 
 # Copy source code
 COPY . .
