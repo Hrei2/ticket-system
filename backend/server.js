@@ -1,7 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
-const Database = require('better-sqlite3');
+const { Client } = require('pg');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
@@ -20,71 +20,71 @@ app.use(express.json());
 app.use(express.static(path.join(__dirname, '../frontend/build')));
 
 // Database
-const db = new Database('./tickets_new.db');
-db.pragma('foreign_keys = ON');
-console.log('Connected to SQLite database.');
-initDatabase();
+const client = new Client({ connectionString: process.env.DATABASE_URL });
+client.connect((err) => {
+  if (err) throw err;
+  console.log('Connected to PostgreSQL database.');
+  initDatabase();
+});
 
 // Initialize database tables
 function initDatabase() {
-  db.exec(`CREATE TABLE IF NOT EXISTS users (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
+  client.query(`CREATE TABLE IF NOT EXISTS users (
+    id SERIAL PRIMARY KEY,
     username TEXT UNIQUE,
     password TEXT,
     role TEXT
-  )`);
+  )`, (err) => { if (err) throw err; });
 
-  db.exec(`CREATE TABLE IF NOT EXISTS events (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
+  client.query(`CREATE TABLE IF NOT EXISTS events (
+    id SERIAL PRIMARY KEY,
     name TEXT,
     description TEXT,
     date TEXT,
     time TEXT,
     start_number INTEGER
-  )`);
+  )`, (err) => { if (err) throw err; });
 
-  db.exec(`CREATE TABLE IF NOT EXISTS user_events (
-    user_id INTEGER,
-    event_id INTEGER,
-    FOREIGN KEY(user_id) REFERENCES users(id),
-    FOREIGN KEY(event_id) REFERENCES events(id),
+  client.query(`CREATE TABLE IF NOT EXISTS user_events (
+    user_id INTEGER REFERENCES users(id),
+    event_id INTEGER REFERENCES events(id),
     PRIMARY KEY(user_id, event_id)
-  )`);
+  )`, (err) => { if (err) throw err; });
 
-  db.exec(`CREATE TABLE IF NOT EXISTS tickets (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    event_id INTEGER,
+  client.query(`CREATE TABLE IF NOT EXISTS tickets (
+    id SERIAL PRIMARY KEY,
+    event_id INTEGER REFERENCES events(id),
     number INTEGER,
     name TEXT,
     surname TEXT,
     birthdate TEXT,
     email TEXT,
     qr_code TEXT,
-    status TEXT DEFAULT 'sold',
-    FOREIGN KEY(event_id) REFERENCES events(id)
-  )`);
+    status TEXT DEFAULT 'sold'
+  )`, (err) => { if (err) throw err; });
 
-  db.exec(`CREATE TABLE IF NOT EXISTS age_rules (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
+  client.query(`CREATE TABLE IF NOT EXISTS age_rules (
+    id SERIAL PRIMARY KEY,
     min_age INTEGER,
     max_age INTEGER,
     color TEXT
-  )`);
+  )`, (err) => { if (err) throw err; });
 
-  db.exec(`INSERT OR IGNORE INTO age_rules (min_age, max_age, color) VALUES (0, 17, 'red')`);
-  db.exec(`INSERT OR IGNORE INTO age_rules (min_age, max_age, color) VALUES (18, 25, 'yellow')`);
-  db.exec(`INSERT OR IGNORE INTO age_rules (min_age, max_age, color) VALUES (26, 150, 'green')`);
+  client.query(`INSERT INTO age_rules (min_age, max_age, color) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING`, [0, 17, 'red'], (err) => { if (err) throw err; });
+  client.query(`INSERT INTO age_rules (min_age, max_age, color) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING`, [18, 25, 'yellow'], (err) => { if (err) throw err; });
+  client.query(`INSERT INTO age_rules (min_age, max_age, color) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING`, [26, 150, 'green'], (err) => { if (err) throw err; });
 
   // Insert default admin user
   const hashedPassword = bcrypt.hashSync('admin', 10);
-  const stmt = db.prepare(`INSERT OR IGNORE INTO users (username, password, role) VALUES (?, ?, ?)`);
-  stmt.run('admin', hashedPassword, 'admin');
+  client.query(`INSERT INTO users (username, password, role) VALUES ($1, $2, $3) ON CONFLICT (username) DO NOTHING`, ['admin', hashedPassword, 'admin'], (err) => { if (err) throw err; });
 }
 
 // Get color for age
 function getAgeColor(age, callback) {
-  const row = db.prepare('SELECT color FROM age_rules WHERE ? BETWEEN min_age AND max_age').get(age);
-  callback(row ? row.color : 'green');
+  client.query('SELECT color FROM age_rules WHERE $1 BETWEEN min_age AND max_age', [age], (err, res) => {
+    if (err) return callback('green');
+    callback(res.rows[0] ? res.rows[0].color : 'green');
+  });
 }
 
 // Auth middleware
@@ -111,32 +111,39 @@ function authorizeRole(roles) {
 // Routes
 app.post('/api/auth/login', (req, res) => {
   const { username, password } = req.body;
-  const user = db.prepare('SELECT * FROM users WHERE username = ?').get(username);
-  if (!user || !bcrypt.compareSync(password, user.password)) {
-    return res.status(401).json({ error: 'Invalid credentials' });
-  }
-  const token = jwt.sign({ id: user.id, username: user.username, role: user.role }, JWT_SECRET);
-  res.json({ token, user: { id: user.id, username: user.username, role: user.role } });
+  client.query('SELECT * FROM users WHERE username = $1', [username], (err, result) => {
+    if (err) return res.status(500).json({ error: err.message });
+    const user = result.rows[0];
+    if (!user || !bcrypt.compareSync(password, user.password)) {
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
+    const token = jwt.sign({ id: user.id, username: user.username, role: user.role }, JWT_SECRET);
+    res.json({ token, user: { id: user.id, username: user.username, role: user.role } });
+  });
 });
 
 // Users
 app.get('/api/users', authenticateToken, authorizeRole(['admin']), (req, res) => {
-  const rows = db.prepare('SELECT id, username, role FROM users').all();
-  res.json(rows);
+  client.query('SELECT id, username, role FROM users', (err, result) => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json(result.rows);
+  });
 });
 
 app.post('/api/users', authenticateToken, authorizeRole(['admin']), (req, res) => {
   const { username, password, role } = req.body;
   const hashedPassword = bcrypt.hashSync(password, 10);
-  const stmt = db.prepare('INSERT INTO users (username, password, role) VALUES (?, ?, ?)');
-  const result = stmt.run(username, hashedPassword, role);
-  res.json({ id: result.lastInsertRowid });
+  client.query('INSERT INTO users (username, password, role) VALUES ($1, $2, $3) RETURNING id', [username, hashedPassword, role], (err, result) => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json({ id: result.rows[0].id });
+  });
 });
 
 app.delete('/api/users/:id', authenticateToken, authorizeRole(['admin']), (req, res) => {
-  const stmt = db.prepare('DELETE FROM users WHERE id = ?');
-  stmt.run(req.params.id);
-  res.json({ message: 'User deleted' });
+  client.query('DELETE FROM users WHERE id = $1', [req.params.id], (err) => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json({ message: 'User deleted' });
+  });
 });
 
 // Events
@@ -144,41 +151,50 @@ app.get('/api/events', authenticateToken, (req, res) => {
   const query = req.user.role === 'admin' ? 'SELECT * FROM events' : `
     SELECT e.* FROM events e
     JOIN user_events ue ON e.id = ue.event_id
-    WHERE ue.user_id = ?
+    WHERE ue.user_id = $1
   `;
   const params = req.user.role === 'admin' ? [] : [req.user.id];
-  const rows = db.prepare(query).all(...params);
-  res.json(rows);
+  client.query(query, params, (err, result) => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json(result.rows);
+  });
 });
 
 app.post('/api/events', authenticateToken, authorizeRole(['admin']), (req, res) => {
   const { name, description, date, time, start_number, assigned_users } = req.body;
-  const eventStmt = db.prepare('INSERT INTO events (name, description, date, time, start_number) VALUES (?, ?, ?, ?, ?)');
-  const result = eventStmt.run(name, description, date, time, start_number);
-  const eventId = result.lastInsertRowid;
-  // Assign users
-  if (assigned_users) {
-    const userStmt = db.prepare('INSERT INTO user_events (user_id, event_id) VALUES (?, ?)');
-    assigned_users.forEach(userId => {
-      userStmt.run(userId, eventId);
-    });
-  }
-  res.json({ id: eventId });
+  client.query('INSERT INTO events (name, description, date, time, start_number) VALUES ($1, $2, $3, $4, $5) RETURNING id', 
+    [name, description, date, time, start_number], (err, result) => {
+    if (err) return res.status(500).json({ error: err.message });
+    const eventId = result.rows[0].id;
+    // Assign users
+    if (assigned_users && assigned_users.length > 0) {
+      const values = assigned_users.map(userId => `(${userId}, ${eventId})`).join(', ');
+      client.query(`INSERT INTO user_events (user_id, event_id) VALUES ${values}`, (err) => {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json({ id: eventId });
+      });
+    } else {
+      res.json({ id: eventId });
+    }
+  });
 });
 
 // Tickets
 app.get('/api/tickets/:eventId', authenticateToken, authorizeRole(['admin', 'seller']), (req, res) => {
   const { eventId } = req.params;
-  const rows = db.prepare('SELECT * FROM tickets WHERE event_id = ?').all(eventId);
-  res.json(rows);
+  client.query('SELECT * FROM tickets WHERE event_id = $1', [eventId], (err, result) => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json(result.rows);
+  });
 });
 
 app.post('/api/tickets', authenticateToken, authorizeRole(['admin', 'seller']), async (req, res) => {
   const { event_id, name, surname, birthdate, email } = req.body;
   
   // Get next number
-  const row = db.prepare('SELECT MAX(number) as maxNum FROM tickets WHERE event_id = ?').get(event_id);
-  const nextNum = (row.maxNum || 0) + 1;
+  client.query('SELECT MAX(number) as maxnum FROM tickets WHERE event_id = $1', [event_id], (err, result) => {
+    if (err) return res.status(500).json({ error: err.message });
+    const nextNum = (result.rows[0].maxnum || 0) + 1;
     
     // Encrypt ticket data
     const ticketData = { id: null, event_id, number: nextNum, name, surname, birthdate, email };
@@ -190,9 +206,10 @@ app.post('/api/tickets', authenticateToken, authorizeRole(['admin', 'seller']), 
     QRCode.toDataURL(encrypted, (err, qrCode) => {
       if (err) return res.status(500).json({ error: err.message });
       
-      const ticketStmt = db.prepare('INSERT INTO tickets (event_id, number, name, surname, birthdate, email, qr_code) VALUES (?, ?, ?, ?, ?, ?, ?)');
-      const result = ticketStmt.run(event_id, nextNum, name, surname, birthdate, email, qrCode);
-      ticketData.id = result.lastInsertRowid;
+      client.query('INSERT INTO tickets (event_id, number, name, surname, birthdate, email, qr_code) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id', 
+        [event_id, nextNum, name, surname, birthdate, email, qrCode], (err, result) => {
+        if (err) return res.status(500).json({ error: err.message });
+        ticketData.id = result.rows[0].id;
         
         // Send email if configured
         if (email && process.env.RESEND_API_KEY) {
@@ -221,20 +238,25 @@ app.post('/api/tickets', authenticateToken, authorizeRole(['admin', 'seller']), 
         
         res.json(ticketData);
       });
-});
-
-// Edit ticket
+    });
+  });
+});// Edit ticket
 app.put('/api/tickets/:id', authenticateToken, authorizeRole(['admin']), (req, res) => {
   const { name, surname, birthdate, email, status } = req.body;
   const ticketId = req.params.id;
 
   // First get the current ticket
-  const ticket = db.prepare('SELECT * FROM tickets WHERE id = ?').get(ticketId);
-  if (!ticket) return res.status(404).json({ error: 'Ticket not found' });
+  client.query('SELECT * FROM tickets WHERE id = $1', [ticketId], (err, result) => {
+    if (err) return res.status(500).json({ error: err.message });
+    const ticket = result.rows[0];
+    if (!ticket) return res.status(404).json({ error: 'Ticket not found' });
 
-  // Update the ticket
-  const updateStmt = db.prepare('UPDATE tickets SET name = ?, surname = ?, birthdate = ?, email = ?, status = ? WHERE id = ?');
-  updateStmt.run(name || ticket.name, surname || ticket.surname, birthdate || ticket.birthdate, email || ticket.email, status || ticket.status, ticketId);      // Regenerate QR code with updated data
+    // Update the ticket
+    client.query('UPDATE tickets SET name = $1, surname = $2, birthdate = $3, email = $4, status = $5 WHERE id = $6', 
+      [name || ticket.name, surname || ticket.surname, birthdate || ticket.birthdate, email || ticket.email, status || ticket.status, ticketId], (err) => {
+      if (err) return res.status(500).json({ error: err.message });
+
+      // Regenerate QR code with updated data
       const updatedTicketData = { 
         id: ticketId, 
         event_id: ticket.event_id, 
@@ -248,13 +270,15 @@ app.put('/api/tickets/:id', authenticateToken, authorizeRole(['admin']), (req, r
       let encrypted = cipher.update(JSON.stringify(updatedTicketData), 'utf8', 'hex');
       encrypted += cipher.final('hex');
 
-      QRCode.toDataURL(encrypted, (err, qrCode) => {
+      QRCode.toDataURL(encrypted, (err, newQrCode) => {
         if (err) return res.status(500).json({ error: err.message });
-
-        const updateQrStmt = db.prepare('UPDATE tickets SET qr_code = ? WHERE id = ?');
-        updateQrStmt.run(qrCode, ticketId);
-        res.json({ message: 'Ticket updated' });
+        client.query('UPDATE tickets SET qr_code = $1 WHERE id = $2', [newQrCode, ticketId], (err) => {
+          if (err) return res.status(500).json({ error: err.message });
+          res.json({ message: 'Ticket updated' });
+        });
       });
+    });
+  });
 });
 
 // Scan
@@ -272,8 +296,7 @@ app.post('/api/scan', authenticateToken, authorizeRole(['admin', 'scanner']), (r
     
     getAgeColor(age, (color) => {
       // Update status
-      const scanStmt = db.prepare('UPDATE tickets SET status = ? WHERE id = ?');
-      scanStmt.run('scanned', ticketData.id);
+      client.query('UPDATE tickets SET status = $1 WHERE id = $2', ['scanned', ticketData.id]);
       
       res.json({ ...ticketData, age, color, status: 'scanned' });
     });
@@ -284,28 +307,33 @@ app.post('/api/scan', authenticateToken, authorizeRole(['admin', 'scanner']), (r
 
 // Age rules
 app.get('/api/age-rules', authenticateToken, authorizeRole(['admin']), (req, res) => {
-  const rows = db.prepare('SELECT * FROM age_rules ORDER BY min_age').all();
-  res.json(rows);
+  client.query('SELECT * FROM age_rules ORDER BY min_age', (err, result) => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json(result.rows);
+  });
 });
 
 app.post('/api/age-rules', authenticateToken, authorizeRole(['admin']), (req, res) => {
   const { min_age, max_age, color } = req.body;
-  const stmt = db.prepare('INSERT INTO age_rules (min_age, max_age, color) VALUES (?, ?, ?)');
-  const result = stmt.run(min_age, max_age, color);
-  res.json({ id: result.lastInsertRowid });
+  client.query('INSERT INTO age_rules (min_age, max_age, color) VALUES ($1, $2, $3) RETURNING id', [min_age, max_age, color], (err, result) => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json({ id: result.rows[0].id });
+  });
 });
 
 app.put('/api/age-rules/:id', authenticateToken, authorizeRole(['admin']), (req, res) => {
   const { min_age, max_age, color } = req.body;
-  const stmt = db.prepare('UPDATE age_rules SET min_age = ?, max_age = ?, color = ? WHERE id = ?');
-  stmt.run(min_age, max_age, color, req.params.id);
-  res.json({ message: 'Updated' });
+  client.query('UPDATE age_rules SET min_age = $1, max_age = $2, color = $3 WHERE id = $4', [min_age, max_age, color, req.params.id], (err) => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json({ message: 'Updated' });
+  });
 });
 
 app.delete('/api/age-rules/:id', authenticateToken, authorizeRole(['admin']), (req, res) => {
-  const stmt = db.prepare('DELETE FROM age_rules WHERE id = ?');
-  stmt.run(req.params.id);
-  res.json({ message: 'Deleted' });
+  client.query('DELETE FROM age_rules WHERE id = $1', [req.params.id], (err) => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json({ message: 'Deleted' });
+  });
 });
 
 // Serve React app

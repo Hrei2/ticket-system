@@ -16,7 +16,6 @@ RUN apt-get update && apt-get install -y build-essential python3
 
 COPY backend/package*.json ./backend/
 RUN npm install --prefix backend
-RUN npm rebuild better-sqlite3 --prefix backend
 COPY backend ./backend
 COPY --from=builder /app/frontend/build ./frontend/build
 
