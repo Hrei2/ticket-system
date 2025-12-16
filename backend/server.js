@@ -21,6 +21,7 @@ app.use(express.static(path.join(__dirname, '../frontend/build')));
 
 // Database
 const db = new Database('./tickets_new.db');
+db.pragma('foreign_keys = ON');
 console.log('Connected to SQLite database.');
 initDatabase();
 
