@@ -14,6 +14,7 @@ WORKDIR /app
 
 COPY backend/package*.json ./backend/
 RUN npm install --prefix backend
+RUN npm rebuild sqlite3 --prefix backend
 COPY backend ./backend
 COPY --from=builder /app/frontend/build ./frontend/build
 
