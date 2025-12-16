@@ -20,7 +20,7 @@ app.use(express.json());
 app.use(express.static(path.join(__dirname, '../frontend/build')));
 
 // Database
-const db = new Database('./tickets.db');
+const db = new Database('./tickets_new.db');
 console.log('Connected to SQLite database.');
 initDatabase();
 
