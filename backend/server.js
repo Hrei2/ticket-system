@@ -220,7 +220,6 @@ app.post('/api/tickets', authenticateToken, authorizeRole(['admin', 'seller']), 
         
         res.json(ticketData);
       });
-    });
 });
 
 // Edit ticket
