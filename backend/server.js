@@ -31,26 +31,26 @@ function initDatabase() {
     username TEXT UNIQUE,
     password TEXT,
     role TEXT
-  );
+  )`);
 
-  CREATE TABLE IF NOT EXISTS events (
+  db.exec(`CREATE TABLE IF NOT EXISTS events (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT,
     description TEXT,
     date TEXT,
     time TEXT,
     start_number INTEGER
-  );
+  )`);
 
-  CREATE TABLE IF NOT EXISTS user_events (
+  db.exec(`CREATE TABLE IF NOT EXISTS user_events (
     user_id INTEGER,
     event_id INTEGER,
     FOREIGN KEY(user_id) REFERENCES users(id),
     FOREIGN KEY(event_id) REFERENCES events(id),
     PRIMARY KEY(user_id, event_id)
-  );
+  )`);
 
-  CREATE TABLE IF NOT EXISTS tickets (
+  db.exec(`CREATE TABLE IF NOT EXISTS tickets (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     event_id INTEGER,
     number INTEGER,
@@ -61,18 +61,18 @@ function initDatabase() {
     qr_code TEXT,
     status TEXT DEFAULT 'sold',
     FOREIGN KEY(event_id) REFERENCES events(id)
-  );
+  )`);
 
-  CREATE TABLE IF NOT EXISTS age_rules (
+  db.exec(`CREATE TABLE IF NOT EXISTS age_rules (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     min_age INTEGER,
     max_age INTEGER,
     color TEXT
-  );
+  )`);
 
-  INSERT OR IGNORE INTO age_rules (min_age, max_age, color) VALUES (0, 17, 'red');
-  INSERT OR IGNORE INTO age_rules (min_age, max_age, color) VALUES (18, 25, 'yellow');
-  INSERT OR IGNORE INTO age_rules (min_age, max_age, color) VALUES (26, 150, 'green');`);
+  db.exec(`INSERT OR IGNORE INTO age_rules (min_age, max_age, color) VALUES (0, 17, 'red')`);
+  db.exec(`INSERT OR IGNORE INTO age_rules (min_age, max_age, color) VALUES (18, 25, 'yellow')`);
+  db.exec(`INSERT OR IGNORE INTO age_rules (min_age, max_age, color) VALUES (26, 150, 'green')`);
 
   // Insert default admin user
   const hashedPassword = bcrypt.hashSync('admin', 10);
