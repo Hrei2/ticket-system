@@ -20,9 +20,16 @@ app.use(express.json());
 app.use(express.static(path.join(__dirname, '../frontend/build')));
 
 // Database
+if (!process.env.DATABASE_URL) {
+  console.error('DATABASE_URL environment variable is not set. Please add a PostgreSQL database to your Railway project.');
+  process.exit(1);
+}
 const client = new Client({ connectionString: process.env.DATABASE_URL });
 client.connect((err) => {
-  if (err) throw err;
+  if (err) {
+    console.error('Database connection failed:', err);
+    process.exit(1);
+  }
   console.log('Connected to PostgreSQL database.');
   initDatabase();
 });
